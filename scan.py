@@ -1,12 +1,22 @@
 import os.path
-import matplotlib.pyplot as plt
 import numpy as np
+import time
+import math
+import matplotlib.pyplot as plt
 from skimage import filters, feature
 
 
 class Scan:
     def __init__(self):
         self.__matrix = np.array([0])
+
+    def show_matrix(self):
+        """Plot current state of the matrix."""
+        plt.figure(), plt.imshow(self.__matrix)
+
+    def get_matrix(self):
+        """Get the current matrix returned."""
+        return self.__matrix
 
     def load_data(self, file_name):
         """Load binary data into scaled matrix."""
@@ -17,6 +27,7 @@ class Scan:
             # Reshape to matrix dimensions
             self.__matrix = np.reshape(self.__matrix, (512, np.size(self.__matrix) // 512), order='F')
             self.__matrix = self.__scale_interval_zero_one(self.__matrix)
+            print("Loading of data succefully finished.")
         else:
             print("Error loading file.")
 
@@ -78,17 +89,26 @@ class Scan:
                         peak_at = c
             peak_at = peaks[-1] + min_width + peak_at
             peaks.append(peak_at)
-        print("Found peaks: " + str(peaks))
+        print("Found peaks: " + str(peaks) + ". Searched until: " + str(width))
 
-        for i in peaks:
-            skin_layer[:, i] = 1
-        plt.figure(), plt.imshow(skin_layer)
+        if debug:
+            for i in peaks:
+                skin_layer[:, i] = 1
+            plt.figure(), plt.imshow(skin_layer)
         return peaks
 
-    def show_matrix(self):
-        """Plot current state of the matrix."""
-        plt.figure(), plt.imshow(self.__matrix)
+    def show_polar(self, peaks):
+        length_peaks = len(peaks)
+        for i in range(0, length_peaks):
+            if i + 1 < length_peaks:
+                matrix = self.__matrix[:, peaks[i]: peaks[i + 1]]
+                polar_matrix = np.empty([1024, 1024])
+                matrix_shape = np.shape(matrix)
 
-    def get_matrix(self):
-        """Get the current matrix returned."""
-        return self.__matrix
+                for x in range(0, matrix_shape[1]):
+                    for y in range(0, matrix_shape[0]):
+                        xp = round(y * math.cos(2 * x * math.pi / matrix_shape[1]) + 512)
+                        yp = round(y * math.sin(2 * x * math.pi / matrix_shape[1]) + 512)
+                        polar_matrix[xp, yp] = matrix[y, x]
+
+                plt.figure(), plt.imshow(polar_matrix)

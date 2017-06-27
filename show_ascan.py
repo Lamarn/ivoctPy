@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
+
 def main():
-    raw_matrix = Scan()
-    raw_matrix.load_data(sys.argv[1])
-    peaks = raw_matrix.find_peaks(5000)
+    scan = Scan()
+    scan.load_data(sys.argv[1])
+    peaks = scan.find_peaks(5000)
+    scan.show_polar(peaks)
 
 
 if __name__ == "__main__":
