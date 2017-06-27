@@ -98,6 +98,7 @@ class Scan:
         return peaks
 
     def show_polar(self, peaks):
+        """Create polar views, save and plot them."""
         polar_vec = []
         length_peaks = len(peaks)
         for i in range(0, length_peaks):
@@ -113,5 +114,6 @@ class Scan:
                         polar_matrix[xp, yp] = matrix[y, x]
 
                 polar_vec.append(polar_matrix)
+                plt.figure(), plt.imshow(polar_matrix)
         print("Succesfully saved all polar images.")
         return polar_vec
