@@ -46,9 +46,9 @@ def find_peaks(matrix):
     max_width = 1300
 
     med_matrix = filters.median(scale_interval_zero_one(matrix), np.ones([5, 5]))
-    # plt.figure(), plt.imshow(med_matrix)
+    plt.figure(), plt.imshow(med_matrix)
     canny_matrix = feature.canny(med_matrix, sigma=1)
-    # plt.figure(), plt.imshow(canny_matrix)
+    plt.figure(), plt.imshow(canny_matrix)
     skin_layer = canny_matrix[85:120, :]
     plt.figure(), plt.imshow(skin_layer)
 
@@ -84,7 +84,7 @@ def find_peaks(matrix):
 def main():
     raw_matrix = load_data()
     sliced_matrix = raw_matrix[:, 0:5000]
-    # plt.figure(), plt.imshow(sliced_matrix)
+    plt.figure(), plt.imshow(sliced_matrix)
     peaks = find_peaks(sliced_matrix)
 
 
