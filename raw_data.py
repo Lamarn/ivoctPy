@@ -5,10 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import io, signal
 
-
-# from skimage import filters, feature
-
-
 def load_spectra(file_name, n):
     """Load binary data into scaled matrix."""
     if os.path.isfile(file_name):
@@ -42,8 +38,7 @@ def remove_second_column(matrix):
 
 
 def load_offset_chirp():
-    # a = io.loadmat(sys.argv[0].replace(str.split(sys.argv[0])[0], ""))
-    a = io.loadmat("/home/levper/git/ivoctPy/offset_chirp.mat")
+    a = io.loadmat(os.getcwd() + "/offset_chirp.mat")
     return a
 
 
