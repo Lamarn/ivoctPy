@@ -98,6 +98,7 @@ class Scan:
         return peaks
 
     def show_polar(self, peaks):
+        polar_vec = []
         length_peaks = len(peaks)
         for i in range(0, length_peaks):
             if i + 1 < length_peaks:
@@ -111,4 +112,6 @@ class Scan:
                         yp = round(y * math.sin(2 * x * math.pi / matrix_shape[1]) + 512)
                         polar_matrix[xp, yp] = matrix[y, x]
 
-                plt.figure(), plt.imshow(polar_matrix)
+                polar_vec.append(polar_matrix)
+        print("Succesfully saved all polar images.")
+        return polar_vec
