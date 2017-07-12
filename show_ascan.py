@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 
 def main():
     scan = Scan()
+    width = 10000
     scan.load_data(sys.argv[1])
-    scan.find_peaks(10000)
+    scan.find_peaks(width)
     scan.create_polar_views()
+    scan.find_circles(width)
 
 
 if __name__ == "__main__":

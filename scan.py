@@ -3,6 +3,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import filters, feature
+from skimage.measure import CircleModel, ransac
 
 
 class Scan:
@@ -41,6 +42,7 @@ class Scan:
         min_v = np.min(matrix)
         max_v = np.max(matrix)
         quotient = 1.0 / (max_v - min_v)
+        print("Matrix scaled.")
         return matrix * quotient
 
     def __remove_second_column(self):
@@ -123,3 +125,30 @@ class Scan:
                     plt.figure(), plt.imshow(polar_matrix)
         self.polar_views = polar_vec
         print("Succesfully saved all polar images.")
+
+    def find_circles(self, width=None):
+        for i in range(0, len(self.polar_views)):
+            self.polar_views[i] = self.interpolation_polar_view(self.polar_views[i])
+            polar_view_canny = feature.canny(filters.median(self.polar_views[i], np.ones([5, 5])))
+
+            points = np.array(np.nonzero(polar_view_canny)).T
+            model_robust, inliers = ransac(points, CircleModel, min_samples=3, residual_threshold=2, max_trials=1000)
+            cy, cx, r = model_robust.params
+            f, (ax0, ax1) = plt.subplots(1, 2)
+
+            ax0.imshow(self.polar_views[i])
+            ax1.imshow(self.polar_views[i])
+
+            ax1.plot(points[inliers, 1], points[inliers, 0], 'b.', markersize=1)
+            ax1.plot(points[~inliers, 1], points[~inliers, 0], 'g.', markersize=1)
+
+            circle = plt.Circle((cx, cy), radius=r, facecolor='none', linewidth=2)
+            ax0.add_patch(circle);
+
+    @staticmethod
+    def interpolation_polar_view(matrix):
+        for x in range(0, np.shape(matrix)[1]):
+            for y in range(0, np.shape(matrix)[0]):
+                if matrix[x,y] == 0:
+
+        return matrix
