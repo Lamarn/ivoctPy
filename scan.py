@@ -149,6 +149,21 @@ class Scan:
     def interpolation_polar_view(matrix):
         for x in range(0, np.shape(matrix)[1]):
             for y in range(0, np.shape(matrix)[0]):
-                if matrix[x,y] == 0:
+                if matrix[x, y] == 0:
+                    values_in_range = []
+                    x_new = x - 512
+                    y_new = y - 512
+                    for i in range(-3, 3):
+                        # Calculate rho and fi
+                        rho = round(abs([x, y]))
+                        fi = round(math.degrees(math.atan(y / x)))
+                        # Add degrees adapted to quadrant
+                        if x_new >= 0 and y_new >= 0:  # first quadrant
+
+                        elif x_new < 0 and y_new >= 0:  # second quadrant
+
+                        elif x_new < 0 and y_new < 0:  # third quadrant
+
+                        elif y_new >= 0 and y_new < 0:  # fourth quadrant
 
         return matrix
