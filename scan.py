@@ -146,24 +146,37 @@ class Scan:
             ax0.add_patch(circle);
 
     @staticmethod
-    def interpolation_polar_view(matrix):
+    def cartesian_coordinates(rho, fi):
+        return round(rho * math.cos(fi)), round(rho * math.sin(fi))
+
+    def interpolation_polar_view(self, matrix, count_values):
         for x in range(0, np.shape(matrix)[1]):
             for y in range(0, np.shape(matrix)[0]):
-                if matrix[x, y] == 0:
+                x_new = x - 512
+                y_new = y - 512
+                if matrix[x, y] == 0 and x is not 512 and (x_new ** 2 + y_new ** 2) < 262144:
                     values_in_range = []
-                    x_new = x - 512
-                    y_new = y - 512
-                    for i in range(-3, 3):
-                        # Calculate rho and fi
-                        rho = round(abs([x, y]))
-                        fi = round(math.degrees(math.atan(y / x)))
-                        # Add degrees adapted to quadrant
-                        if x_new >= 0 and y_new >= 0:  # first quadrant
+                    rho = round(math.sqrt(x_new ** 2 + y_new ** 2))
+                    fi = round(math.degrees(math.atan(y_new / x_new)))
+                    # print(str(rho) + ", " + str(fi))
+                    for i in range(-count_values, count_values):
+                        for j in range(-count_values, count_values):
+                            x_near, y_near = self.cartesian_coordinates(rho + j, fi + i)
+                            if x_near ** 2 + y_near ** 2 < 262144:
+                                near_value = matrix[x_near, y_near]
+                                if near_value != 0:
+                                    values_in_range.append(near_value)
+                    if len(values_in_range) > 0:
+                        matrix[x, y] = np.median(values_in_range)
+                    values_in_range.clear()
 
-                        elif x_new < 0 and y_new >= 0:  # second quadrant
-
-                        elif x_new < 0 and y_new < 0:  # third quadrant
-
-                        elif y_new >= 0 and y_new < 0:  # fourth quadrant
-
+                    # Calculate rho and fi
+                    # Add degrees adapted to quadrant
+                    # if x_new < 0 and y_new >= 0:  # second quadrant
+                    #     fi += 180
+                    # elif x_new < 0 and y_new < 0:  # third quadrant
+                    #     fi += 180
+                    # elif y_new >= 0 and y_new < 0:  # fourth quadrant
+                    #     fi += 360
+        plt.figure(), plt.imshow(matrix)
         return matrix
