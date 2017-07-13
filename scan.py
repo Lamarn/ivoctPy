@@ -1,4 +1,5 @@
 import os.path
+import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,20 +8,21 @@ from skimage.measure import CircleModel, ransac
 
 
 class Scan:
-    def __init__(self):
+    def __init__(self, width):
         self.matrix = []
+        self.cut_matrix = []
         self.peaks = []
         self.polar_views = []
         self.debug = False
         self.ascan_size = 512
+        self.width = width
+        self.surface_threshold = 0.39
 
-    def show_matrix(self):
-        """Plot current state of the matrix."""
-        plt.figure(), plt.imshow(self.matrix)
+    def plot_matrix(self):
+        plt.figure(), plt.imshow(self.matrix[:, 0:self.width])
 
-    def get_matrix(self):
-        """Get the current matrix returned."""
-        return self.matrix
+    def plot_cut_matrix(self):
+        plt.figure(), plt.imshow(self.cut_matrix)
 
     def load_data(self, file_name):
         """Load binary data into scaled matrix."""
@@ -31,6 +33,8 @@ class Scan:
             # Reshape to matrix dimensions
             self.matrix = np.reshape(self.matrix, (self.ascan_size, np.size(self.matrix) // self.ascan_size), order='F')
             self.matrix = self.__scale_interval_zero_one(self.matrix)
+            self.cut_matrix = self.matrix[:, 0:self.width]
+            self.preprocess_matrix()
             print("Loading of data succefully finished.")
         else:
             print("Error loading file.")
@@ -53,11 +57,9 @@ class Scan:
                 new_matrix[:, (i - 1) // 2] = self.matrix[:, i]
         self.matrix = new_matrix
 
-    def find_peaks(self, width=None):
-        """Find peaks from matrix showing a sinus curve."""
-
-        if width is not None:
-            matrix = self.matrix[:, 0:width]
+    def find_peaks(self):
+        """Find peaks from matrix, showing a sinus curve."""
+        matrix = self.cut_matrix
 
         min_width = 850
         max_width = 1400
@@ -96,7 +98,7 @@ class Scan:
             peaks.append(peak_at)
 
         self.peaks = peaks
-        print("Found peaks: " + str(peaks) + ". Searched until: " + str(width))
+        print("Found peaks: " + str(peaks) + ". Searched until: " + str(self.width))
 
         # Plot vertical line, where peak was found.
         if self.debug:
@@ -105,12 +107,12 @@ class Scan:
             plt.figure(), plt.imshow(skin_layer)
 
     def create_polar_views(self):
-        """Create polar views, save and plot them."""
+        """Create polar views and save in array."""
         polar_vec = []
         length_peaks = len(self.peaks)
         for i in range(0, length_peaks):
             if i + 1 < length_peaks:
-                matrix = self.matrix[:, self.peaks[i]: self.peaks[i + 1]]
+                matrix = self.cut_matrix[:, self.peaks[i]: self.peaks[i + 1]]
                 polar_matrix = np.empty([1024, 1024])
                 matrix_shape = np.shape(matrix)
 
@@ -126,7 +128,7 @@ class Scan:
         self.polar_views = polar_vec
         print("Succesfully saved all polar images.")
 
-    def find_circles(self, width=None):
+    def find_circles(self):
         for i in range(0, len(self.polar_views)):
             self.polar_views[i] = self.interpolation_polar_view(self.polar_views[i])
             polar_view_canny = feature.canny(filters.median(self.polar_views[i], np.ones([5, 5])))
@@ -143,40 +145,64 @@ class Scan:
             ax1.plot(points[~inliers, 1], points[~inliers, 0], 'g.', markersize=1)
 
             circle = plt.Circle((cx, cy), radius=r, facecolor='none', linewidth=2)
-            ax0.add_patch(circle);
+            ax0.add_patch(circle)
 
     @staticmethod
     def cartesian_coordinates(rho, fi):
+        time.clock()
         return round(rho * math.cos(fi)), round(rho * math.sin(fi))
+
+    @staticmethod
+    def polar_coordinates(x, y):
+        time.clock()
+        if x == 0.0:
+            x = 0.1
+        rho = round(math.sqrt(x ** 2 + y ** 2))
+        fi = round(math.degrees(math.atan(y / x)))
+        # Add degrees adapted to quadrant
+        if x < 0 and y >= 0:  # second quadrant
+            fi += 180
+        elif x < 0 and y < 0:  # third quadrant
+            fi += 180
+        elif x >= 0 and y < 0:  # fourth quadrant
+            fi += 360
+        return rho, fi
 
     def interpolation_polar_view(self, matrix, count_values):
         for x in range(0, np.shape(matrix)[1]):
             for y in range(0, np.shape(matrix)[0]):
                 x_new = x - 512
                 y_new = y - 512
-                if matrix[x, y] == 0 and x is not 512 and (x_new ** 2 + y_new ** 2) < 262144:
+                if matrix[x, y] == 0 and (x_new ** 2 + y_new ** 2) < 262144:
                     values_in_range = []
-                    rho = round(math.sqrt(x_new ** 2 + y_new ** 2))
-                    fi = round(math.degrees(math.atan(y_new / x_new)))
-                    # print(str(rho) + ", " + str(fi))
+                    rho, fi = self.polar_coordinates(x_new, y_new)
+                    if self.debug:
+                        print("[" + str(rho) + ", " + str(fi) + "]")
                     for i in range(-count_values, count_values):
-                        for j in range(-count_values, count_values):
+                        for j in range(-2, 2):
                             x_near, y_near = self.cartesian_coordinates(rho + j, fi + i)
-                            if x_near ** 2 + y_near ** 2 < 262144:
-                                near_value = matrix[x_near, y_near]
-                                if near_value != 0:
-                                    values_in_range.append(near_value)
+                            # if x_near ** 2 + y_near ** 2 < 262144:
+                            near_value = matrix[x_near, y_near]
+                            if near_value != 0:
+                                values_in_range.append(near_value)
                     if len(values_in_range) > 0:
                         matrix[x, y] = np.median(values_in_range)
                     values_in_range.clear()
-
-                    # Calculate rho and fi
-                    # Add degrees adapted to quadrant
-                    # if x_new < 0 and y_new >= 0:  # second quadrant
-                    #     fi += 180
-                    # elif x_new < 0 and y_new < 0:  # third quadrant
-                    #     fi += 180
-                    # elif y_new >= 0 and y_new < 0:  # fourth quadrant
-                    #     fi += 360
         plt.figure(), plt.imshow(matrix)
         return matrix
+
+    def mark_inner_surface(self):
+        """Highlight surface layers."""
+        self.cut_matrix[self.cut_matrix > self.surface_threshold] = 1.0
+
+    def preprocess_matrix(self):
+        """Preprocess values of matrix, to get a homogeneous image."""
+        self.cut_matrix[self.cut_matrix < 0] = 0.0
+        m1 = np.ma.masked_inside(self.cut_matrix, 0.0, 0.1)
+        m1 = 0.1
+        m2 = np.ma.masked_inside(self.cut_matrix, 0.1, 0.2)
+        m2 = 0.2
+        m3 = np.ma.masked_inside(self.cut_matrix, 0.2, 0.3)
+        m3 = 0.3
+        m4 = np.ma.masked_inside(self.cut_matrix, 0.3, self.surface_threshold - 0.2)
+        m4 = self.surface_threshold - 0.2
