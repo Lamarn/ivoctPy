@@ -1,16 +1,20 @@
 import sys
+from scan import Scan
+from raw_data import RawData
 import matplotlib.pyplot as plt
-import show_ascan
-
 from PyQt5.QtWidgets import QDialog, QApplication, QPushButton, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget, \
-    QStatusBar, QFileDialog
+    QFileDialog, QStatusBar, QLabel, QPlainTextEdit, QLayout, QFrame
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 
 class Window(QDialog):
+    "https://stackoverflow.com/questions/12459811/how-to-embed-matplotib-in-pyqt-for-dummies"
+
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
+        self.raw_data = None
+        self.scan = None
 
         # First figure
         self.figure1 = plt.figure()
@@ -42,7 +46,7 @@ class Window(QDialog):
         self.figure_element4.addWidget(self.toolbar4)
         # Fifth figure
         self.figure5 = plt.figure()
-        self.canvas5 = FigureCanvas(self.figure4)
+        self.canvas5 = FigureCanvas(self.figure5)
         self.toolbar5 = NavigationToolbar(self.canvas5, self)
         self.figure_element5 = QVBoxLayout()
         self.figure_element5.addWidget(self.canvas5)
@@ -65,6 +69,26 @@ class Window(QDialog):
         self.button_process_ascans = QPushButton("Process ascans")
         self.button_process_ascans.clicked.connect(self.process_ascans)
 
+        # Text Edit's
+        self.diameter_min = QLabel("Diameter (min): ")
+        self.diameter_max = QLabel("Diameter (max): ")
+        self.diameter_average = QLabel("Diameter (average): ")
+
+        self.diameter_min_text = QPlainTextEdit("...")
+        self.diameter_min_text.setMaximumHeight(30)
+        self.diameter_max_text = QPlainTextEdit("...")
+        self.diameter_max_text.setMaximumHeight(30)
+        self.diameter_average_text = QPlainTextEdit("...")
+        self.diameter_average_text.setMaximumHeight(30)
+
+        self.layout_diameter = QHBoxLayout()
+        self.layout_diameter.addWidget(self.diameter_min)
+        self.layout_diameter.addWidget(self.diameter_min_text)
+        self.layout_diameter.addWidget(self.diameter_max)
+        self.layout_diameter.addWidget(self.diameter_max_text)
+        self.layout_diameter.addWidget(self.diameter_average)
+        self.layout_diameter.addWidget(self.diameter_average_text)
+
         # Layouts
         self.layout_buttons1 = QHBoxLayout()
         self.layout_buttons1.addWidget(self.button_load_raw)
@@ -79,24 +103,30 @@ class Window(QDialog):
 
         self.layout_raw_first_row = QHBoxLayout()
         self.layout_raw_first_row.addLayout(self.figure_element1)
+        self.layout_raw_first_row.addWidget(self.VLine())
         self.layout_raw_first_row.addLayout(self.figure_element2)
 
         self.layout_raw_second_row = QHBoxLayout()
         self.layout_raw_second_row.addLayout(self.figure_element3)
+        self.layout_raw_second_row.addWidget(self.VLine())
         self.layout_raw_second_row.addLayout(self.figure_element4)
 
         self.layout_ascan_first_row = QHBoxLayout()
         self.layout_ascan_first_row.addLayout(self.figure_element5)
+        self.layout_ascan_first_row.addWidget(self.VLine())
         self.layout_ascan_first_row.addLayout(self.figure_element6)
 
-
-
         self.layout_tab_raw.addLayout(self.layout_buttons1)
+        self.layout_tab_raw.addWidget(self.HLine())
         self.layout_tab_raw.addLayout(self.layout_raw_first_row)
+        self.layout_tab_raw.addWidget(self.HLine())
         self.layout_tab_raw.addLayout(self.layout_raw_second_row)
 
         self.layout_tab_ascan.addLayout(self.layout_buttons2)
+        self.layout_tab_ascan.addWidget(self.HLine())
         self.layout_tab_ascan.addLayout(self.layout_ascan_first_row)
+        self.layout_tab_ascan.addWidget(self.HLine())
+        self.layout_tab_ascan.addLayout(self.layout_diameter)
 
         # Tab Widget
         self.tab_widget = QTabWidget()
@@ -112,49 +142,94 @@ class Window(QDialog):
         # set the layout
         layout = QVBoxLayout()
         layout.addWidget(self.tab_widget)
-
+        self.status_bar = QStatusBar()
+        self.status_bar_text = QLabel("Starting succesfully finished")
+        self.status_bar.addWidget(self.status_bar_text)
+        layout.addWidget(self.status_bar)
         self.setLayout(layout)
+
+    def HLine(self):
+        toto = QFrame()
+        toto.setFrameShape(QFrame.HLine)
+        toto.setFrameShadow(QFrame.Sunken)
+        return toto
+
+    def VLine(self):
+        toto = QFrame()
+        toto.setFrameShape(QFrame.VLine)
+        toto.setFrameShadow(QFrame.Sunken)
+        return toto
 
     def load_raw(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Open binary file', '', "Binary (*.bin)")
+        if path != "":
+            self.raw_data = None
 
-        # show_ascan.main()
-        # self.figure1.clear()
-        # ax = self.figure.add_subplot(111)
-        # ax.plot(data, '*-')
-        # self.canvas1.draw()
+            self.status_bar_text.setText("Loading raw data")
+            # Loading raw data
+            self.raw_data = RawData(10000)
+            self.raw_data.load_raw_data(path)
+            # 5 raw ascans
+            self.figure1.clear()
+            ax = self.figure1.add_subplot(111)
+            ax.plot(self.raw_data.cut_spectra[:, 120:125])
+            self.canvas1.draw()
+            # 5000 raw ascans
+            self.figure3.clear()
+            ax = self.figure3.add_subplot(111)
+            ax.imshow(self.raw_data.cut_spectra)
+            self.canvas3.draw()
+            self.status_bar_text.setText("Finished loading raw data")
+        else:
+            self.status_bar_text.setText("Path was empty!")
 
     def process_raw(self):
-        pass
+        if self.raw_data is not None:
+            self.status_bar_text.setText("Processing raw data")
+            self.raw_data.process_raw_data()
+            # 5 processed ascans
+            self.figure2.clear()
+            ax = self.figure2.add_subplot(111)
+            ax.plot(self.raw_data.cut_spectra[:, 120:125])
+            self.canvas2.draw()
+            # processed image
+            self.figure4.clear()
+            ax = self.figure4.add_subplot(111)
+            ax.imshow(self.raw_data.cut_spectra)
+            self.canvas4.draw()
+            self.status_bar_text.setText("Finished processing raw data")
 
     def load_ascans(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Open b-scan file', '', "B Scans (*.bin)")
+        if path != "":
+            self.status_bar_text.setText("Loading processed data")
+            # Loading Scan
+            self.scan = Scan(10000)
+            self.scan.load_data(path)
+            self.scan.preprocess_matrix()
+            # 5000 processed ascans
+            self.figure5.clear()
+            ax = self.figure5.add_subplot(111)
+            ax.imshow(self.scan.cut_matrix)
+            self.canvas5.draw()
 
-        pass
+            self.status_bar_text.setText("Finished loading processed data")
+        else:
+            self.status_bar_text.setText("Path was empty!")
 
     def process_ascans(self):
-        pass
+        if self.scan is not None:
+            self.status_bar_text.setText("Processing polar view")
+            self.scan.find_peaks()
+            self.scan.create_polar_views()
+            # polar_view = self.scan.interpolation_polar_view(self.scan.polar_views[2], 3)
+            # Show polar view
+            self.figure5.clear()
+            ax = self.figure5.add_subplot(111)
+            ax.imshow(self.scan.polar_views[2])
+            self.canvas5.draw()
 
-        #
-        # def plot(self):
-        #     ''' plot some random stuff '''
-        #     # random data
-        #     data = [random.random() for i in range(10)]
-        #
-        #     # instead of ax.hold(False)
-        #     self.figure.clear()
-        #
-        #     # create an axis
-        #     ax = self.figure.add_subplot(111)
-        #
-        #     # discards the old graph
-        #     # ax.hold(False) # deprecated, see above
-        #
-        #     # plot data
-        #     ax.plot(data, '*-')
-        #
-        #     # refresh canvas
-        #     self.canvas.draw()
+            self.status_bar_text.setText("Finished processing polar view")
 
 
 if __name__ == '__main__':

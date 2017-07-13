@@ -1,94 +1,80 @@
 import os.path
-import sys
 
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy import io, signal, fft
 from scipy.interpolate import interp1d
 
 
-def load_spectra(file_name, n):
-    """
-    Load binary data into matrix.
-    Reshape and multiply with constant 540.
-    """
-    if os.path.isfile(file_name):
-        f = open(file_name, "r")
-        # Load file from binary file
-        a = np.fromfile(f, np.uint16, sep="")
-        # Reshape to matrix dimensions
-        a = np.reshape(a, (n, np.size(a) // n), order='F')
-        a = np.dot(a, 540)
-        return a
-    else:
-        print("Error loading file.")
-        return -1
+class RawData:
+    def __init__(self, width):
+        self.width = width
+        self.ascan_size = 2 * 512
+        self.spectra = []
+        self.cut_spectra = []
+        self.matlab_array = []
 
+    def load_spectra(self, file_name):
+        """
+        Load binary data into matrix.
+        Reshape and multiply with constant 540.
+        """
+        if os.path.isfile(file_name):
+            f = open(file_name, "r")
+            # Load file from binary file
+            a = np.fromfile(f, np.uint16, sep="")
+            # Reshape to matrix dimensions
+            a = np.reshape(a, (self.ascan_size, np.size(a) // self.ascan_size), order='F')
+            a = np.dot(a, 540)
+            self.spectra = a
+            self.cut_spectra = a[:, 0:self.width]
+            print("Loading of raw data succefully finished.")
+        else:
+            print("Error loading file.")
 
-def load_offset_chirp():
-    """Load published matlab variables."""
-    a = io.loadmat(os.getcwd() + "/offset_chirp.mat")
-    return a
+    def load_offset_chirp(self):
+        """Load published matlab variables."""
+        self.matlab_array = io.loadmat(os.getcwd() + "/offset_chirp.mat")
 
+    def remove_detector_offset(self, offset):
+        """Remove detector offset from signal"""
+        for c in range(0, np.shape(self.cut_spectra)[1]):
+            self.cut_spectra[:, c] = self.cut_spectra[:, c] - np.transpose(offset)
 
-def remove_detector_offset(spectra, offset):
-    """Remove detector offset from signal"""
-    for c in range(0, np.shape(spectra)[1]):
-        spectra[:, c] = spectra[:, c] - np.transpose(offset)
+    def remove_dc(self):
+        """Remove mean value over all ascans from every ascan."""
+        for i in range(0, np.shape(self.cut_spectra)[0]):
+            self.cut_spectra[i, :] = self.cut_spectra[i, :] - np.mean(self.cut_spectra[i, :])
 
+    def apodization(self):
+        """Apply hann window for fft apllication."""
+        spectra_shape = np.shape(self.cut_spectra)
+        for c in range(0, spectra_shape[1]):
+            self.cut_spectra[:, c] = np.multiply(self.cut_spectra[:, c], signal.hann(1024))
 
-def remove_dc(spectra):
-    """Remove mean value over all ascans from every ascan."""
-    for i in range(0, np.shape(spectra)[0]):
-        spectra[i, :] = spectra[i, :] - np.mean(spectra[i, :])
+    def de_chirp(self, chirp):
+        """Interpolate ascans to chirp positions."""
+        for i in range(0, np.shape(self.cut_spectra)[1]):
+            f = interp1d(chirp, self.cut_spectra[:, i])
+            self.cut_spectra[:, i] = f(range(0, 1024))
 
+    def fourier_transform(self):
+        """Apply fft, take the abs and compress with log."""
+        for i in range(0, np.shape(self.cut_spectra)[1]):
+            self.cut_spectra[:, i] = np.abs(fft(np.transpose(self.cut_spectra[:, i])))
+            self.cut_spectra[:, i] = self.apply_log(self.cut_spectra[:, i])
 
-def apodization(spectra):
-    """Apply hann window for fft apllication."""
-    spectra_shape = np.shape(spectra)
-    for c in range(0, spectra_shape[1]):
-        spectra[:, c] = np.multiply(spectra[:, c], signal.hann(1024))
+    @staticmethod
+    def apply_log(x):
+        """Helper function for fourier_transform."""
+        return 20 * np.log(x)
 
+    def load_raw_data(self, path):
+        self.load_spectra(path)
+        self.load_offset_chirp()
 
-def de_chirp(spectra, chirp):
-    """Interpolate ascans to chirp positions."""
-    for i in range(0, np.shape(spectra)[1]):
-        f = interp1d(chirp, spectra[:, i])
-        spectra[:, i] = f(range(0, 1024))
-
-
-def fourier_transform(spectra):
-    """Apply fft, take the abs and compress with log."""
-    for i in range(0, np.shape(spectra)[1]):
-        spectra[:, i] = np.abs(fft(np.transpose(spectra[:, i])))
-        spectra[:, i] = apply_log(spectra[:, i])
-
-
-def apply_log(x):
-    """Helper function for fourier_transform."""
-    return 20 * np.log(x)
-
-
-def main():
-    """Main procedure"""
-    raw_matrix = load_spectra(sys.argv[1], 2 * 512)
-    matlab_array = load_offset_chirp()
-    sliced_matrix = raw_matrix[:, 0:5000]
-
-    remove_detector_offset(sliced_matrix, matlab_array['Offset'])
-
-    remove_dc(sliced_matrix)
-    apodization(sliced_matrix)
-    de_chirp(sliced_matrix, np.squeeze(matlab_array['Chirp']))
-    fourier_transform(sliced_matrix)
-
-    plt.figure(), plt.imshow(sliced_matrix)
-    plt.figure(), plt.plot(sliced_matrix[:, 20:25])
-
-    processed_matrix = sliced_matrix[0:512, :]
-
-
-if __name__ == "__main__":
-    main()
-    # Really important for showing of plot.
-    plt.show(block=True)
+    def process_raw_data(self):
+        self.remove_detector_offset(self.matlab_array['Offset'])
+        self.remove_dc()
+        self.apodization()
+        self.de_chirp(np.squeeze(self.matlab_array['Chirp']))
+        self.fourier_transform()

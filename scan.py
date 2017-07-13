@@ -1,5 +1,4 @@
 import os.path
-import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,10 +15,7 @@ class Scan:
         self.debug = False
         self.ascan_size = 512
         self.width = width
-        self.surface_threshold = 0.39
-
-    def plot_matrix(self):
-        plt.figure(), plt.imshow(self.matrix[:, 0:self.width])
+        self.surface_threshold = 0.37
 
     def plot_cut_matrix(self):
         plt.figure(), plt.imshow(self.cut_matrix)
@@ -34,7 +30,6 @@ class Scan:
             self.matrix = np.reshape(self.matrix, (self.ascan_size, np.size(self.matrix) // self.ascan_size), order='F')
             self.matrix = self.__scale_interval_zero_one(self.matrix)
             self.cut_matrix = self.matrix[:, 0:self.width]
-            self.preprocess_matrix()
             print("Loading of data succefully finished.")
         else:
             print("Error loading file.")
@@ -49,17 +44,9 @@ class Scan:
         print("Matrix scaled.")
         return matrix * quotient
 
-    def __remove_second_column(self):
-        """Remove every second column of the matrix. Maybe never will be used."""
-        new_matrix = np.empty((np.shape(self.matrix)[0], np.shape(self.matrix)[1] // 2))
-        for i in range(0, np.shape(self.matrix)[1]):
-            if i % 2 == 0:
-                new_matrix[:, (i - 1) // 2] = self.matrix[:, i]
-        self.matrix = new_matrix
-
     def find_peaks(self):
         """Find peaks from matrix, showing a sinus curve."""
-        matrix = self.cut_matrix
+        matrix = self.matrix[:, 0:self.width]
 
         min_width = 850
         max_width = 1400
@@ -112,7 +99,7 @@ class Scan:
         length_peaks = len(self.peaks)
         for i in range(0, length_peaks):
             if i + 1 < length_peaks:
-                matrix = self.cut_matrix[:, self.peaks[i]: self.peaks[i + 1]]
+                matrix = self.matrix[:, self.peaks[i]: self.peaks[i + 1]]
                 polar_matrix = np.empty([1024, 1024])
                 matrix_shape = np.shape(matrix)
 
@@ -149,12 +136,10 @@ class Scan:
 
     @staticmethod
     def cartesian_coordinates(rho, fi):
-        time.clock()
         return round(rho * math.cos(fi)), round(rho * math.sin(fi))
 
     @staticmethod
     def polar_coordinates(x, y):
-        time.clock()
         if x == 0.0:
             x = 0.1
         rho = round(math.sqrt(x ** 2 + y ** 2))
@@ -168,7 +153,7 @@ class Scan:
             fi += 360
         return rho, fi
 
-    def interpolation_polar_view(self, matrix, count_values):
+    def interpolation_polar_view(self, matrix, width):
         for x in range(0, np.shape(matrix)[1]):
             for y in range(0, np.shape(matrix)[0]):
                 x_new = x - 512
@@ -178,25 +163,20 @@ class Scan:
                     rho, fi = self.polar_coordinates(x_new, y_new)
                     if self.debug:
                         print("[" + str(rho) + ", " + str(fi) + "]")
-                    for i in range(-count_values, count_values):
+                    for i in range(-width, width):
                         for j in range(-2, 2):
                             x_near, y_near = self.cartesian_coordinates(rho + j, fi + i)
-                            # if x_near ** 2 + y_near ** 2 < 262144:
                             near_value = matrix[x_near, y_near]
                             if near_value != 0:
                                 values_in_range.append(near_value)
                     if len(values_in_range) > 0:
-                        matrix[x, y] = np.median(values_in_range)
+                        matrix[x, y] = np.average(values_in_range)
                     values_in_range.clear()
-        plt.figure(), plt.imshow(matrix)
         return matrix
-
-    def mark_inner_surface(self):
-        """Highlight surface layers."""
-        self.cut_matrix[self.cut_matrix > self.surface_threshold] = 1.0
 
     def preprocess_matrix(self):
         """Preprocess values of matrix, to get a homogeneous image."""
+        self.cut_matrix[self.cut_matrix > self.surface_threshold] = 1.0
         self.cut_matrix[self.cut_matrix < 0] = 0.0
         m1 = np.ma.masked_inside(self.cut_matrix, 0.0, 0.1)
         m1 = 0.1
@@ -204,5 +184,5 @@ class Scan:
         m2 = 0.2
         m3 = np.ma.masked_inside(self.cut_matrix, 0.2, 0.3)
         m3 = 0.3
-        m4 = np.ma.masked_inside(self.cut_matrix, 0.3, self.surface_threshold - 0.2)
-        m4 = self.surface_threshold - 0.2
+        m4 = np.ma.masked_inside(self.cut_matrix, 0.3, 0.37)
+        m4 = 0.3
