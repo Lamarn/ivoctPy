@@ -74,19 +74,18 @@ def main():
     raw_matrix = load_spectra(sys.argv[1], 2 * 512)
     matlab_array = load_offset_chirp()
     sliced_matrix = raw_matrix[:, 0:5000]
-    plt.figure(), plt.imshow(sliced_matrix)
 
     remove_detector_offset(sliced_matrix, matlab_array['Offset'])
+
     remove_dc(sliced_matrix)
     apodization(sliced_matrix)
     de_chirp(sliced_matrix, np.squeeze(matlab_array['Chirp']))
     fourier_transform(sliced_matrix)
 
-    processed_matrix = sliced_matrix[0:512, :]
+    plt.figure(), plt.imshow(sliced_matrix)
+    plt.figure(), plt.plot(sliced_matrix[:, 20:25])
 
-    # plt.figure(), plt.plot(signal.hann(1024))
-    plt.figure(), plt.plot(processed_matrix[:, 1:20])
-    plt.figure(), plt.imshow(processed_matrix)
+    processed_matrix = sliced_matrix[0:512, :]
 
 
 if __name__ == "__main__":
