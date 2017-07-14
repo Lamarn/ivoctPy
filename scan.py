@@ -7,14 +7,14 @@ from skimage.measure import CircleModel, ransac
 
 
 class Scan:
-    def __init__(self, width):
+    def __init__(self, start_at):
         self.matrix = []
         self.cut_matrix = []
         self.peaks = []
         self.polar_views = []
         self.debug = False
         self.ascan_size = 512
-        self.width = width
+        self.start_at = start_at
         self.surface_threshold = 0.37
 
     def plot_cut_matrix(self):
@@ -29,7 +29,8 @@ class Scan:
             # Reshape to matrix dimensions
             self.matrix = np.reshape(self.matrix, (self.ascan_size, np.size(self.matrix) // self.ascan_size), order='F')
             self.matrix = self.__scale_interval_zero_one(self.matrix)
-            self.cut_matrix = self.matrix[:, 0:self.width]
+            self.cut_matrix = self.matrix[:, self.start_at:self.start_at + 5000]
+            self.preprocess_matrix()
             print("Loading of data succefully finished.")
         else:
             print("Error loading file.")
@@ -46,7 +47,7 @@ class Scan:
 
     def find_peaks(self):
         """Find peaks from matrix, showing a sinus curve."""
-        matrix = self.matrix[:, 0:self.width]
+        matrix = self.cut_matrix
 
         min_width = 850
         max_width = 1400
@@ -85,7 +86,8 @@ class Scan:
             peaks.append(peak_at)
 
         self.peaks = peaks
-        print("Found peaks: " + str(peaks) + ". Searched until: " + str(self.width))
+        print("Found peaks: " + str(peaks) + ". Searched from: " + str(self.start_at) + " until: " + str(
+            self.start_at + 5000))
 
         # Plot vertical line, where peak was found.
         if self.debug:
@@ -99,7 +101,7 @@ class Scan:
         length_peaks = len(self.peaks)
         for i in range(0, length_peaks):
             if i + 1 < length_peaks:
-                matrix = self.matrix[:, self.peaks[i]: self.peaks[i + 1]]
+                matrix = self.cut_matrix[:, self.peaks[i]: self.peaks[i + 1]]
                 polar_matrix = np.empty([1024, 1024])
                 matrix_shape = np.shape(matrix)
 
@@ -110,6 +112,7 @@ class Scan:
                         polar_matrix[xp, yp] = matrix[y, x]
 
                 polar_vec.append(polar_matrix)
+                print(polar_matrix)
                 if self.debug:
                     plt.figure(), plt.imshow(polar_matrix)
         self.polar_views = polar_vec
@@ -185,4 +188,11 @@ class Scan:
         m3 = np.ma.masked_inside(self.cut_matrix, 0.2, 0.3)
         m3 = 0.3
         m4 = np.ma.masked_inside(self.cut_matrix, 0.3, 0.37)
-        m4 = 0.3
+        m4 = 0.37
+
+    def load_scan(self, path):
+        self.load_data(path)
+
+    def process_scan(self):
+        self.find_peaks()
+        self.create_polar_views()

@@ -163,11 +163,9 @@ class Window(QDialog):
     def load_raw(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Open binary file', '', "Binary (*.bin)")
         if path != "":
-            self.raw_data = None
-
             self.status_bar_text.setText("Loading raw data")
             # Loading raw data
-            self.raw_data = RawData(10000)
+            self.raw_data = RawData(20000)
             self.raw_data.load_raw_data(path)
             # 5 raw ascans
             self.figure1.clear()
@@ -204,9 +202,8 @@ class Window(QDialog):
         if path != "":
             self.status_bar_text.setText("Loading processed data")
             # Loading Scan
-            self.scan = Scan(10000)
+            self.scan = Scan(20000)
             self.scan.load_data(path)
-            self.scan.preprocess_matrix()
             # 5000 processed ascans
             self.figure5.clear()
             ax = self.figure5.add_subplot(111)
@@ -221,13 +218,15 @@ class Window(QDialog):
         if self.scan is not None:
             self.status_bar_text.setText("Processing polar view")
             self.scan.find_peaks()
+            self.scan.plot_cut_matrix()
             self.scan.create_polar_views()
             # polar_view = self.scan.interpolation_polar_view(self.scan.polar_views[2], 3)
             # Show polar view
-            self.figure5.clear()
-            ax = self.figure5.add_subplot(111)
-            ax.imshow(self.scan.polar_views[2])
-            self.canvas5.draw()
+            self.figure6.clear()
+            ax = self.figure6.add_subplot(111)
+            for i in range(0, len(self.scan.polar_views)):
+                ax(i).imshow(self.scan.polar_views[i])
+            self.canvas6.draw()
 
             self.status_bar_text.setText("Finished processing polar view")
 
@@ -236,7 +235,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     main = Window()
-    main.showMaximized()
     main.setWindowTitle("Intravascular Optical Coherence Tomograph - Viewer")
     main.show()
 

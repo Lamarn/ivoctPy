@@ -6,8 +6,8 @@ from scipy.interpolate import interp1d
 
 
 class RawData:
-    def __init__(self, width):
-        self.width = width
+    def __init__(self, start_at):
+        self.start_at = start_at
         self.ascan_size = 2 * 512
         self.spectra = []
         self.cut_spectra = []
@@ -26,7 +26,7 @@ class RawData:
             a = np.reshape(a, (self.ascan_size, np.size(a) // self.ascan_size), order='F')
             a = np.dot(a, 540)
             self.spectra = a
-            self.cut_spectra = a[:, 0:self.width]
+            self.cut_spectra = a[:, self.start_at:self.start_at + 5000]
             print("Loading of raw data succefully finished.")
         else:
             print("Error loading file.")
